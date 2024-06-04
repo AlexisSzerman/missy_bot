@@ -1,3 +1,5 @@
+from http.server import BaseHTTPRequestHandler
+import json
 from datetime import datetime, timedelta
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters, ConversationHandler
@@ -5,13 +7,10 @@ import psycopg2
 from dotenv import load_dotenv
 import os
 
-# Cargar las variables de entorno desde el archivo .env
 load_dotenv()
 
-# Obtener el token de la API de Telegram desde las variables de entorno
 telegram_bot_api_key = os.getenv("TELEGRAM_BOT_API_KEY")
 
-# Configuración de la base de datos de Supabase
 def get_db_connection():
     return psycopg2.connect(
         dbname=os.getenv('SUPABASE_DB_NAME'),
@@ -21,17 +20,12 @@ def get_db_connection():
         port=os.getenv('SUPABASE_DB_PORT')
     )
 
-# Diccionario para almacenar usuarios autenticados
 authenticated_users = {}
-
-# Estados del proceso de búsqueda
 SEARCH_NAME = 1
 
-# Comando /start para iniciar la interacción con el bot
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(f'Hola {update.effective_user.first_name}, por favor ingresa la contraseña.')
 
-# Maneja la verificación de la contraseña
 async def check_password(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.message.from_user.id
     message_text = update.message.text
@@ -43,15 +37,12 @@ async def check_password(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await update.message.reply_text('Contraseña incorrecta. Inténtalo nuevamente.')
         authenticated_users[user_id] = False
 
-# Función para obtener reuniones de la semana actual
 async def obtener_reuniones(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await obtener_reuniones_actual(update, context, 0)
 
-# Función para obtener reuniones de la semana siguiente
 async def obtener_reuniones_siguiente(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await obtener_reuniones_actual(update, context, 1)
 
-# Función genérica para obtener reuniones de una semana específica
 async def obtener_reuniones_actual(update: Update, context: ContextTypes.DEFAULT_TYPE, semana_offset: int) -> None:
     user_id = update.message.from_user.id
     if authenticated_users.get(user_id, False):
@@ -74,7 +65,6 @@ async def obtener_reuniones_actual(update: Update, context: ContextTypes.DEFAULT
         monday = today - timedelta(days=today.weekday()) + timedelta(weeks=semana_offset)
         next_monday = monday + timedelta(days=7)
 
-        # Convertir el inicio y fin de semana a objetos de fecha
         monday_date = monday.date()
         next_monday_date = next_monday.date()
 
@@ -95,7 +85,6 @@ async def obtener_reuniones_actual(update: Update, context: ContextTypes.DEFAULT
             return
 
         message_text = ""
-        # Obtener la fecha de la primera reunión en la semana
         first_reunion_date = filtered_reuniones[0].get('Fecha', '')
         if first_reunion_date:
             message_text += f"*Reunión de la semana {first_reunion_date}\n*"
@@ -111,16 +100,13 @@ async def obtener_reuniones_actual(update: Update, context: ContextTypes.DEFAULT
             if reunion.get('Ayudante') and reunion['Ayudante'].strip() and reunion['Ayudante'].strip().lower() != 'no aplica':
                 details.append(f"*Ayudante: {reunion['Ayudante']}*")
 
-            # Only add to message if there are details
             if details:
                 message_text += " ".join(details) + "\n"
 
         await update.message.reply_text(message_text, parse_mode='Markdown')         
-        
     else:
         await update.message.reply_text('No estás autorizado para usar este comando. Por favor, introduce la contraseña correcta primero.')
 
-# Inicia el proceso de búsqueda solicitando el nombre
 async def buscar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.message.from_user.id
     if authenticated_users.get(user_id, False):
@@ -129,8 +115,6 @@ async def buscar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     else:
         await update.message.reply_text('No estás autorizado para usar este comando. Por favor, introduce la contraseña correcta primero.')
         return ConversationHandler.END
-
-# Maneja la respuesta del usuario con el nombre y busca en la base de datos
 async def resultado_busqueda(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.message.from_user.id
     if authenticated_users.get(user_id, False):
