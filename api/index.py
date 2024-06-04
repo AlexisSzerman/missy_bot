@@ -1,4 +1,3 @@
-from http.server import BaseHTTPRequestHandler
 import json
 from datetime import datetime, timedelta
 from telegram import Update
@@ -115,6 +114,7 @@ async def buscar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     else:
         await update.message.reply_text('No estás autorizado para usar este comando. Por favor, introduce la contraseña correcta primero.')
         return ConversationHandler.END
+
 async def resultado_busqueda(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.message.from_user.id
     if authenticated_users.get(user_id, False):
@@ -160,21 +160,41 @@ async def resultado_busqueda(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 
 # Configuración del bot y manejadores de comandos
-if __name__ == '__main__':
-    app = ApplicationBuilder().token(telegram_bot_api_key).build()
-
-    # Configuración del ConversationHandler para el comando "buscar"
-    buscar_handler = ConversationHandler(
-        entry_points=[CommandHandler("buscar", buscar)],
-        states={
-            SEARCH_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, resultado_busqueda)]
-        },
-        fallbacks=[]
-    )
-
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("reunion", obtener_reuniones))
-    app.add_handler(CommandHandler("siguiente", obtener_reuniones_siguiente))
-    app.add_handler(buscar_handler)  # Agrega buscar_handler en lugar de resultado_busqueda
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_password))
-    app.run_polling()
+def handler(event, context):
+    # Manejar las solicitudes entrantes
+    if event["httpMethod"] == "POST":
+        body = json.loads(event["body"])
+        update = Update.de_json(body, {})
+        
+        # Configurar context
+        context = ContextTypes.DEFAULT_TYPE
+        
+        # Configurar manejadores de comandos
+        command_handlers = [
+            CommandHandler("start", start),
+            CommandHandler("reunion", obtener_reuniones),
+            CommandHandler("siguiente", obtener_reuniones_siguiente),
+            ConversationHandler(
+                entry_points=[CommandHandler("buscar", buscar)],
+                states={
+                    SEARCH_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, resultado_busqueda)]
+                },
+                fallbacks=[]
+            ),
+            MessageHandler(filters.TEXT & ~filters.COMMAND, check_password)
+        ]
+        
+        # Crear la aplicación
+        app = ApplicationBuilder().token(telegram_bot_api_key).build()
+        
+        # Agregar manejadores de comandos
+        for handler in command_handlers:
+            app.add_handler(handler)
+        
+        # Procesar la actualización
+        app.process_update(update)
+        
+        return {
+            "statusCode": 200,
+            "body": json.dumps("Update processed successfully")
+        }
