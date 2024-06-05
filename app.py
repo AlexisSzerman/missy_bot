@@ -175,8 +175,11 @@ async def resultado_busqueda(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return ConversationHandler.END
 
 
+# Configuración del bot y manejadores de comandos
 if __name__ == '__main__':
     app = ApplicationBuilder().token(telegram_bot_api_key).build()
+
+    
 
     # Configuración del ConversationHandler para el comando "buscar"
     buscar_handler = ConversationHandler(
@@ -192,8 +195,4 @@ if __name__ == '__main__':
     app.add_handler(CommandHandler("siguiente", obtener_reuniones_siguiente))
     app.add_handler(buscar_handler)  # Agrega buscar_handler en lugar de resultado_busqueda
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_password))
-    
-    if os.getenv("TELEGRAM_BOT_API_KEY"):  # Verifica si la clave de la API de Telegram está presente en las variables de entorno
-        app.run_polling()
-    else:
-        print("La clave de la API de Telegram no está configurada en las variables de entorno.")
+    app.run_polling()
